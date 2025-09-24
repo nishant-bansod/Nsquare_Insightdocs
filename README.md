@@ -44,7 +44,7 @@ A complete **RAG (Retrieval-Augmented Generation)** web application that allows 
 
 ```
 Nsquare InsightDocs/
-├── railway_local_dev.py      # Main FastAPI application with RAG
+├── main.py                   # Main FastAPI application with RAG
 ├── modern_interface.html     # Frontend web interface
 ├── requirements.txt          # Python dependencies
 ├── README.md                 # This file
@@ -68,7 +68,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 ### 3. Run the Application
 ```bash
-python railway_local_dev.py
+python main.py
 ```
 
 ### 4. Access the Application
