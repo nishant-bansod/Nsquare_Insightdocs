@@ -73,46 +73,86 @@ def initialize_rag_system():
         print(f"❌ Failed to initialize RAG System: {e}")
         return False
 
-def chunk_text(text: str, chunk_size: int = 2000, overlap: int = 200) -> List[Dict]:
+def chunk_text(text: str, chunk_size: int = 3000, overlap: int = 400) -> List[Dict]:
     """
     Split text into overlapping chunks for better context retrieval
-    Optimized for large documents (500+ pages)
-    - Larger chunks (2000 chars) for better context
-    - Increased overlap (200 chars) for continuity
-    - Smart sentence boundary detection
+    ENHANCED for 500+ page documents:
+    - Larger chunks (3000 chars) for better context retention
+    - Increased overlap (400 chars) for better continuity
+    - Advanced sentence/paragraph boundary detection
+    - Quality filtering for meaningful chunks
     """
     if not text or len(text) < chunk_size:
-        return [{"text": text, "start": 0, "end": len(text)}]
+        return [{"text": text, "start": 0, "end": len(text), "length": len(text)}]
     
     chunks = []
     start = 0
+    text_length = len(text)
     
-    while start < len(text):
-        end = min(start + chunk_size, len(text))
+    print(f"🔄 Chunking {text_length:,} characters with enhanced strategy for large documents...")
+    
+    while start < text_length:
+        end = min(start + chunk_size, text_length)
         
-        # Try to break at sentence boundaries for better context
-        if end < len(text):
-            # Look for sentence endings within the last 200 characters
-            sentence_end = text.rfind('.', start, end)
-            if sentence_end > start + chunk_size - 200:
-                end = sentence_end + 1
-            else:
-                # Look for paragraph breaks
+        # Advanced boundary detection for better context
+        if end < text_length:
+            # Priority 1: Look for section breaks (double newlines + headers)
+            section_pattern = text.rfind('\n\n', start, end)
+            if section_pattern > start + chunk_size - 500:
+                # Check if what follows looks like a header/title
+                remaining_text = text[section_pattern:section_pattern + 100]
+                if any(pattern in remaining_text.upper() for pattern in ['CHAPTER', 'SECTION', 'PART', 'ARTICLE']):
+                    end = section_pattern + 2
+                    
+            # Priority 2: Look for sentence endings with proper punctuation
+            if end == min(start + chunk_size, text_length):
+                for punct in ['. ', '! ', '? ']:
+                    sentence_end = text.rfind(punct, start, end)
+                    if sentence_end > start + chunk_size - 300:
+                        end = sentence_end + len(punct)
+                        break
+                        
+            # Priority 3: Look for paragraph breaks
+            if end == min(start + chunk_size, text_length):
                 para_end = text.rfind('\n\n', start, end)
-                if para_end > start + chunk_size - 300:
+                if para_end > start + chunk_size - 400:
                     end = para_end + 2
+                    
+            # Priority 4: Look for line breaks
+            if end == min(start + chunk_size, text_length):
+                line_end = text.rfind('\n', start, end)
+                if line_end > start + chunk_size - 200:
+                    end = line_end + 1
         
         chunk_text = text[start:end].strip()
-        if chunk_text:
+        
+        # Quality filtering - only include meaningful chunks
+        if (chunk_text and 
+            len(chunk_text) > 50 and  # Minimum meaningful length
+            len(chunk_text.split()) > 8):  # At least 8 words
+            
             chunks.append({
                 "text": chunk_text,
                 "start": start,
                 "end": end,
-                "length": len(chunk_text)
+                "length": len(chunk_text),
+                "word_count": len(chunk_text.split())
             })
         
-        # Move start with overlap
-        start = max(start + chunk_size - overlap, end)
+        # Enhanced overlap calculation for large documents
+        if end >= text_length:
+            break
+            
+        # Move start with smart overlap
+        next_start = max(start + chunk_size - overlap, start + chunk_size // 2)
+        start = min(next_start, end - overlap // 2) if end > start + overlap else end
+    
+    print(f"✅ Created {len(chunks)} high-quality chunks")
+    if chunks:
+        avg_length = sum(chunk['length'] for chunk in chunks) // len(chunks)
+        avg_words = sum(chunk['word_count'] for chunk in chunks) // len(chunks)
+        print(f"📊 Average chunk: {avg_length} chars, {avg_words} words")
+        print(f"🎯 Optimized for 500+ page document analysis")
     
     return chunks
 
@@ -133,20 +173,61 @@ def add_document_to_rag(doc_id: str, text: str, filename: str):
         print(f"📊 Average chunk size: {sum(chunk['length'] for chunk in chunks) // len(chunks) if chunks else 0} characters")
         print(f"🎯 Optimized for large documents (500+ pages)")
         
-        # Generate embeddings for all chunks
+        # Generate embeddings for all chunks (with memory management for large docs)
         chunk_texts = [chunk["text"] for chunk in chunks]
-        embeddings = rag_model.encode(chunk_texts, convert_to_tensor=False)
+        
+        # Process embeddings in batches for large documents (memory optimization)
+        batch_size = 32  # Process 32 chunks at a time
+        all_embeddings = []
+        
+        for i in range(0, len(chunk_texts), batch_size):
+            batch_texts = chunk_texts[i:i + batch_size]
+            print(f"🔄 Generating embeddings for chunks {i+1}-{min(i+batch_size, len(chunk_texts))}...")
+            
+            try:
+                batch_embeddings = rag_model.encode(batch_texts, convert_to_tensor=False, show_progress_bar=False)
+                all_embeddings.append(batch_embeddings)
+                
+                # Memory cleanup for very large documents
+                if len(chunks) > 200:  # For documents with 200+ chunks
+                    import gc
+                    gc.collect()
+                    
+            except Exception as e:
+                print(f"❌ Error generating embeddings for batch {i//batch_size + 1}: {e}")
+                continue
+        
+        if not all_embeddings:
+            print("❌ Failed to generate any embeddings")
+            return
+            
+        # Combine all embeddings
+        embeddings = np.vstack(all_embeddings)
         
         # Store chunks and metadata
         document_chunks[doc_id] = chunks
         chunk_metadata[doc_id] = {
             "filename": filename,
             "chunk_count": len(chunks),
-            "total_length": len(text)
+            "total_length": len(text),
+            "embedding_batches": len(all_embeddings)
         }
         
-        # Add to FAISS index
-        vector_index.add(embeddings.astype('float32'))
+        # Add to FAISS index (with memory optimization)
+        try:
+            vector_index.add(embeddings.astype('float32'))
+        except Exception as e:
+            print(f"❌ Error adding embeddings to FAISS index: {e}")
+            # Try to recover by processing in smaller batches
+            batch_size = 16
+            for i in range(0, len(embeddings), batch_size):
+                try:
+                    batch_embeddings = embeddings[i:i + batch_size]
+                    vector_index.add(batch_embeddings.astype('float32'))
+                    print(f"✅ Added batch {i//batch_size + 1} to index")
+                except Exception as batch_e:
+                    print(f"❌ Failed to add batch {i//batch_size + 1}: {batch_e}")
+                    continue
         
         print(f"✅ Added {len(chunks)} chunks to vector index")
         print(f"📊 Total vectors in index: {vector_index.ntotal}")
@@ -154,8 +235,15 @@ def add_document_to_rag(doc_id: str, text: str, filename: str):
     except Exception as e:
         print(f"❌ Error adding document to RAG: {e}")
 
-def search_relevant_chunks(query: str, top_k: int = 8) -> List[Dict]:
-    """Search for most relevant chunks using vector similarity"""
+def search_relevant_chunks(query: str, top_k: int = 12) -> List[Dict]:
+    """
+    Search for most relevant chunks using vector similarity
+    ENHANCED for 500+ page documents:
+    - Increased retrieval (top_k=12) for better coverage
+    - Advanced query processing for better matches
+    - Score filtering for quality results
+    - Context expansion for related chunks
+    """
     global vector_index, document_chunks, chunk_metadata
     
     if not RAG_AVAILABLE or not rag_model or not vector_index or vector_index.ntotal == 0:
@@ -163,15 +251,36 @@ def search_relevant_chunks(query: str, top_k: int = 8) -> List[Dict]:
         return []
     
     try:
-        # Generate query embedding
-        query_embedding = rag_model.encode([query], convert_to_tensor=False)
+        print(f"🔍 Searching {vector_index.ntotal} chunks for: '{query[:100]}...'")
         
-        # Search for similar chunks
-        scores, indices = vector_index.search(query_embedding.astype('float32'), top_k)
+        # Enhanced query processing for large documents
+        # Add context keywords to improve retrieval
+        enhanced_query = query
+        if len(query.split()) < 5:  # Short queries get enhancement
+            context_keywords = []
+            if 'match' in query.lower():
+                context_keywords.extend(['venue', 'location', 'stadium', 'ground'])
+            if 'skill' in query.lower():
+                context_keywords.extend(['technology', 'programming', 'development'])
+            if 'name' in query.lower():
+                context_keywords.extend(['person', 'individual', 'author'])
+                
+            if context_keywords:
+                enhanced_query = f"{query} {' '.join(context_keywords[:3])}"
+                print(f"🎯 Enhanced query: '{enhanced_query}'")
+        
+        # Generate query embedding
+        query_embedding = rag_model.encode([enhanced_query], convert_to_tensor=False)
+        
+        # Search for similar chunks - increase search space for large docs
+        search_k = min(top_k * 2, vector_index.ntotal)  # Search more, filter better
+        scores, indices = vector_index.search(query_embedding.astype('float32'), search_k)
         
         relevant_chunks = []
+        min_score = 0.1  # Minimum similarity threshold for large documents
+        
         for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
-            if idx == -1:  # FAISS returns -1 for empty results
+            if idx == -1 or score < min_score:  # Filter out low-quality matches
                 continue
                 
             # Find which document this chunk belongs to
@@ -188,16 +297,71 @@ def search_relevant_chunks(query: str, top_k: int = 8) -> List[Dict]:
             
             if doc_id and chunk_idx is not None:
                 chunk = document_chunks[doc_id][chunk_idx]
-                relevant_chunks.append({
+                
+                # Add chunk with metadata
+                chunk_data = {
                     "text": chunk["text"],
                     "score": float(score),
                     "doc_id": doc_id,
                     "filename": chunk_metadata[doc_id]["filename"],
-                    "chunk_index": chunk_idx
-                })
+                    "chunk_index": chunk_idx,
+                    "relevance_rank": i + 1
+                }
+                
+                relevant_chunks.append(chunk_data)
+                
+                # Stop when we have enough high-quality chunks
+                if len(relevant_chunks) >= top_k:
+                    break
         
-        print(f"🔍 Found {len(relevant_chunks)} relevant chunks for query")
-        return relevant_chunks
+        # Sort by relevance score (highest first)
+        relevant_chunks.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Context expansion for large documents - add adjacent chunks for top results
+        if len(relevant_chunks) > 0 and len(relevant_chunks) < top_k:
+            print("🔄 Expanding context with adjacent chunks for better coverage...")
+            expanded_chunks = []
+            
+            for chunk_data in relevant_chunks[:3]:  # Expand top 3 chunks
+                doc_id = chunk_data["doc_id"]
+                chunk_idx = chunk_data["chunk_index"]
+                
+                # Add current chunk
+                expanded_chunks.append(chunk_data)
+                
+                # Try to add adjacent chunks for better context
+                doc_chunks = document_chunks.get(doc_id, [])
+                for adj_offset in [-1, 1]:  # Previous and next chunk
+                    adj_idx = chunk_idx + adj_offset
+                    if (0 <= adj_idx < len(doc_chunks) and 
+                        len(expanded_chunks) < top_k):
+                        
+                        adj_chunk = doc_chunks[adj_idx]
+                        adj_chunk_data = {
+                            "text": adj_chunk["text"],
+                            "score": chunk_data["score"] * 0.8,  # Slightly lower score
+                            "doc_id": doc_id,
+                            "filename": chunk_data["filename"],
+                            "chunk_index": adj_idx,
+                            "relevance_rank": len(expanded_chunks) + 1,
+                            "context_expansion": True
+                        }
+                        expanded_chunks.append(adj_chunk_data)
+            
+            # Add remaining original chunks
+            for chunk_data in relevant_chunks[3:]:
+                if len(expanded_chunks) < top_k:
+                    expanded_chunks.append(chunk_data)
+            
+            relevant_chunks = expanded_chunks
+        
+        print(f"✅ Retrieved {len(relevant_chunks)} relevant chunks")
+        if relevant_chunks:
+            avg_score = sum(chunk["score"] for chunk in relevant_chunks) / len(relevant_chunks)
+            print(f"📊 Average relevance score: {avg_score:.3f}")
+            print(f"🎯 Enhanced for 500+ page document analysis")
+        
+        return relevant_chunks[:top_k]  # Ensure we don't exceed top_k
         
     except Exception as e:
         print(f"❌ Error searching RAG system: {e}")
@@ -255,35 +419,114 @@ class DocumentInfo(BaseModel):
     upload_time: str
     status: str
 
-# Simple PDF text extraction
+# Enhanced PDF text extraction for large documents (500+ pages)
 def extract_text_simple(file_path: str) -> str:
-    """Simple PDF text extraction - Enhanced for complete content"""
-    try:
-        import PyPDF2
-        with open(file_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
+    """Enhanced PDF text extraction - Optimized for 500+ page documents"""
+    
+    def try_pypdf2_extraction():
+        """Try PyPDF2 extraction first (fastest)"""
+        try:
+            import PyPDF2
+            with open(file_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                text = ""
+                total_pages = len(pdf_reader.pages)
+                print(f"📄 PDF has {total_pages} pages - using PyPDF2")
+                
+                # Process in batches for large documents
+                batch_size = 50  # Process 50 pages at a time
+                for batch_start in range(0, total_pages, batch_size):
+                    batch_end = min(batch_start + batch_size, total_pages)
+                    print(f"🔄 Processing pages {batch_start + 1}-{batch_end}...")
+                    
+                    batch_text = ""
+                    for page_num in range(batch_start, batch_end):
+                        try:
+                            page = pdf_reader.pages[page_num]
+                            page_text = page.extract_text()
+                            if page_text and page_text.strip():
+                                batch_text += f"\n--- PAGE {page_num + 1} ---\n"
+                                batch_text += page_text.strip() + "\n"
+                            else:
+                                print(f"⚠️ Page {page_num + 1} has no extractable text")
+                        except Exception as page_error:
+                            print(f"❌ Error extracting page {page_num + 1}: {page_error}")
+                            continue
+                    
+                    text += batch_text
+                    print(f"✅ Batch {batch_start + 1}-{batch_end}: {len(batch_text)} characters")
+                
+                print(f"📊 PyPDF2 Total extracted: {len(text)} characters")
+                return text.strip() if text.strip() else None
+                
+        except Exception as e:
+            print(f"❌ PyPDF2 extraction failed: {e}")
+            return None
+    
+    def try_pdfplumber_extraction():
+        """Try pdfplumber extraction (more robust for complex PDFs)"""
+        try:
+            import pdfplumber
             text = ""
-            total_pages = len(pdf_reader.pages)
-            print(f"📄 PDF has {total_pages} pages")
+            print(f"🔄 Trying pdfplumber extraction (better for complex layouts)...")
             
-            for page_num, page in enumerate(pdf_reader.pages):
-                try:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += f"\n--- PAGE {page_num + 1} ---\n"
-                        text += page_text + "\n"
-                        print(f"✅ Extracted page {page_num + 1}: {len(page_text)} characters")
-                    else:
-                        print(f"⚠️ Page {page_num + 1} has no extractable text")
-                except Exception as page_error:
-                    print(f"❌ Error extracting page {page_num + 1}: {page_error}")
-                    continue
-            
-            print(f"📊 Total extracted text: {len(text)} characters")
-            return text.strip() if text.strip() else "No text content found in PDF"
-    except Exception as e:
-        print(f"❌ PDF extraction error: {e}")
-        return f"Error extracting text: {str(e)}"
+            with pdfplumber.open(file_path) as pdf:
+                total_pages = len(pdf.pages)
+                print(f"📄 pdfplumber found {total_pages} pages")
+                
+                # Process in smaller batches for memory efficiency
+                batch_size = 25  # Smaller batches for pdfplumber
+                for batch_start in range(0, total_pages, batch_size):
+                    batch_end = min(batch_start + batch_size, total_pages)
+                    print(f"🔄 Processing pages {batch_start + 1}-{batch_end} with pdfplumber...")
+                    
+                    batch_text = ""
+                    for page_num in range(batch_start, batch_end):
+                        try:
+                            page = pdf.pages[page_num]
+                            page_text = page.extract_text()
+                            if page_text and page_text.strip():
+                                batch_text += f"\n--- PAGE {page_num + 1} ---\n"
+                                batch_text += page_text.strip() + "\n"
+                        except Exception as page_error:
+                            print(f"❌ pdfplumber error on page {page_num + 1}: {page_error}")
+                            continue
+                    
+                    text += batch_text
+                    print(f"✅ pdfplumber batch {batch_start + 1}-{batch_end}: {len(batch_text)} characters")
+                
+                print(f"📊 pdfplumber Total extracted: {len(text)} characters")
+                return text.strip() if text.strip() else None
+                
+        except ImportError:
+            print("⚠️ pdfplumber not available - install with: pip install pdfplumber")
+            return None
+        except Exception as e:
+            print(f"❌ pdfplumber extraction failed: {e}")
+            return None
+    
+    # Try extraction methods in order of preference
+    print(f"🚀 Starting extraction for large document: {file_path}")
+    
+    # Method 1: PyPDF2 (fastest)
+    extracted_text = try_pypdf2_extraction()
+    
+    # Method 2: pdfplumber (more robust) if PyPDF2 fails or returns little text
+    if not extracted_text or len(extracted_text) < 1000:
+        print("🔄 PyPDF2 returned minimal text, trying pdfplumber...")
+        pdfplumber_text = try_pdfplumber_extraction()
+        if pdfplumber_text and len(pdfplumber_text) > len(extracted_text or ""):
+            extracted_text = pdfplumber_text
+    
+    # Final validation
+    if extracted_text and len(extracted_text) > 100:
+        print(f"✅ Successfully extracted {len(extracted_text)} characters from large PDF")
+        print(f"📊 Document is ready for 500+ page processing with RAG system")
+        return extracted_text
+    else:
+        error_msg = "No text content found in PDF or extraction failed"
+        print(f"❌ {error_msg}")
+        return error_msg
 
 def clean_bullet_formatting(text: str) -> str:
     """Clean up bullet point formatting for better readability"""
@@ -1285,18 +1528,34 @@ async def chat_with_document(request: ChatRequest):
             combined_text = "\n\n".join([f"=== DOCUMENT: {name} ===\n{content}" for name, content in zip(document_names, all_documents_text)])
             document_name = f"{len(document_names)} documents: {', '.join(document_names)}"
         
-        # RAG System: Search for most relevant chunks
-        relevant_chunks = search_relevant_chunks(request.question, top_k=5)
+        # ENHANCED RAG System: Search for most relevant chunks (optimized for 500+ pages)
+        relevant_chunks = search_relevant_chunks(request.question, top_k=10)
         
         if relevant_chunks:
-            # Use RAG-retrieved context for more focused answers
-            rag_context = "\n\n".join([f"Source: {chunk['filename']}\n{chunk['text']}" for chunk in relevant_chunks])
-            context_text = f"RELEVANT CONTEXT FROM DOCUMENTS:\n{rag_context}\n\nFULL DOCUMENT CONTENT:\n{combined_text}"
-            print(f"🎯 Using RAG context from {len(relevant_chunks)} relevant chunks")
+            # Create focused context from RAG-retrieved chunks
+            rag_context_parts = []
+            for i, chunk in enumerate(relevant_chunks):
+                context_marker = f"[RELEVANT SECTION {i+1} - {chunk['filename']} - Score: {chunk['score']:.3f}]"
+                rag_context_parts.append(f"{context_marker}\n{chunk['text']}\n")
+            
+            rag_context = "\n".join(rag_context_parts)
+            
+            # For large documents, prioritize RAG context over full content
+            if len(combined_text) > 50000:  # For documents > 50k chars, focus on RAG
+                context_text = f"MOST RELEVANT CONTENT FROM {len(relevant_chunks)} SECTIONS:\n{rag_context}"
+                print(f"🎯 Large doc mode: Using RAG context from {len(relevant_chunks)} chunks ({len(rag_context)} chars)")
+            else:
+                # For smaller docs, include both RAG and full content
+                context_text = f"RELEVANT CONTEXT:\n{rag_context}\n\nFULL DOCUMENT:\n{combined_text[:20000]}..."
+                print(f"🎯 Standard mode: Using RAG + partial content from {len(relevant_chunks)} chunks")
         else:
-            # Fallback to full document content
-            context_text = f"FULL DOCUMENT CONTENT:\n{combined_text}"
-            print("⚠️  RAG search failed - using full document content")
+            # Fallback to full document content (truncated for large docs)
+            if len(combined_text) > 30000:
+                context_text = f"DOCUMENT CONTENT (TRUNCATED):\n{combined_text[:30000]}..."
+                print("⚠️  RAG search failed - using truncated document content for large doc")
+            else:
+                context_text = f"FULL DOCUMENT CONTENT:\n{combined_text}"
+                print("⚠️  RAG search failed - using full document content")
         
         # Try Gemini API first (Google AI)
         try:
@@ -1440,12 +1699,12 @@ if __name__ == "__main__":
     print("   ✅ RAG system with vector search")
     print("   ✅ 500+ page document support")
     print("📍 Endpoints:")
-    print("   http://localhost:9000/")
-    print("   http://localhost:9000/health")
-    print("   http://localhost:9000/upload")
-    print("   http://localhost:9000/chat")
-    print("   http://localhost:9000/deployment-status")
-    print("   http://localhost:9000/docs")
+    print("   http://localhost:8090/")
+    print("   http://localhost:8090/health")
+    print("   http://localhost:8090/upload")
+    print("   http://localhost:8090/chat")
+    print("   http://localhost:8090/deployment-status")
+    print("   http://localhost:8090/docs")
     
-    uvicorn.run(app, host="127.0.0.1", port=9000, reload=False)
+    uvicorn.run(app, host="127.0.0.1", port=8090, reload=False)
 

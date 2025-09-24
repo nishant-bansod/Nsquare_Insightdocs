@@ -499,7 +499,7 @@
                     if (endpoint === '/add-pdf') {
                         addMessage(`📄 New PDF "${result.filename}" has been added to our conversation. You can now ask questions about this additional document or combine information from multiple PDFs.`, 'ai');
                     } else {
-                        addMessage('Hello! I\'ve processed your PDF document. You can now ask me questions about its content.', 'ai');
+                        addMessage(`✅ Successfully processed: ${result.filename}\n📄 Document is ready for Q&A!\n\nAsk me anything about the content.`, 'ai');
                     }
                 } else {
                     throw new Error('Upload failed');
