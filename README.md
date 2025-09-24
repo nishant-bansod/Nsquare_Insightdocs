@@ -44,7 +44,7 @@ A complete **RAG (Retrieval-Augmented Generation)** web application that allows 
 
 ```
 Nsquare InsightDocs/
-├── main.py                   # Main FastAPI application with RAG
+├── app.py                    # Main FastAPI application with RAG
 ├── modern_interface.html     # Frontend web interface
 ├── requirements.txt          # Python dependencies
 ├── README.md                 # This file
@@ -68,7 +68,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 ### 3. Run the Application
 ```bash
-python main.py
+python app.py
 ```
 
 ### 4. Access the Application
