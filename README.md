@@ -2,7 +2,7 @@
 
 A complete **RAG (Retrieval-Augmented Generation)** web application that allows users to upload PDF documents and ask intelligent questions about their content using advanced AI technology.
 
-## 🎯 **100% Assignment Requirements Compliant**
+## 100% Assignment Requirements Compliant
 
 ✅ **Simple web interface** for PDF upload  
 ✅ **Chat-like interface** for questions  
@@ -12,7 +12,7 @@ A complete **RAG (Retrieval-Augmented Generation)** web application that allows 
 ✅ **Document Chunking** (500+ page support)  
 ✅ **Clean User Interface** with professional branding  
 
-## 🚀 **Key Features**
+## Key Features
 
 - **Advanced RAG System**: Vector embeddings with semantic search
 - **Multi-Document Support**: Upload and analyze multiple PDFs
@@ -22,7 +22,7 @@ A complete **RAG (Retrieval-Augmented Generation)** web application that allows 
 - **Error Handling**: Graceful fallback system
 - **Smart Fallback**: Works even without API keys
 
-## 📸 **Screenshots**
+## Screenshots
 
 ### Home Page Interface
 ![Home Page](static/screenshots/home%20page.png)
@@ -32,7 +32,7 @@ A complete **RAG (Retrieval-Augmented Generation)** web application that allows 
 ![Chat Interface](static/screenshots/Chat%20Interface.png)
 *Real-time Q&A with uploaded PDF documents showing RAG responses*
 
-## 🛠 **Technology Stack**
+## Technology Stack
 
 ### Backend
 - **FastAPI**: Modern Python web framework
@@ -50,7 +50,7 @@ A complete **RAG (Retrieval-Augmented Generation)** web application that allows 
 - **In-memory**: Local development storage
 - **File-based**: PDF storage in uploads directory
 
-## 📁 **Project Structure**
+## Project Structure
 
 ```
 Nsquare InsightDocs/
@@ -66,7 +66,7 @@ Nsquare InsightDocs/
 └── uploads/                 # PDF storage directory
 ```
 
-## 🚀 **Quick Start**
+## Quick Start
 
 ### 1. Install Dependencies
 ```bash
@@ -87,7 +87,7 @@ python app.py
 ### 4. Access the Application
 Open your browser and go to: **http://localhost:9000/**
 
-## 🎯 **How It Works**
+## How It Works
 
 1. **Upload PDF**: Drag & drop or click to upload PDF documents
 2. **Automatic Processing**: 
@@ -101,7 +101,7 @@ Open your browser and go to: **http://localhost:9000/**
    - Context-aware AI responses
    - Professional formatting
 
-## 🔧 **RAG System Details**
+## RAG System Details
 
 - **Embedding Model**: `all-MiniLM-L6-v2` (384 dimensions)
 - **Vector Database**: FAISS FlatIP index
@@ -110,14 +110,14 @@ Open your browser and go to: **http://localhost:9000/**
 - **Context Window**: Top 5 most relevant chunks per query
 - **Large Document Support**: Optimized for 500+ page documents
 
-## 📊 **Performance**
+## Performance
 
 - **Response Time**: < 5 seconds (EXCELLENT)
 - **Accuracy**: High-confidence answers (0.95+)
 - **Scalability**: Multi-document support
 - **Large Files**: Optimized for 500+ page documents
 
-## 🎨 **UI Features**
+## UI Features
 
 - **Company Branding**: Logo and "Nsquare InsightDocs" title
 - **Modern Design**: Clean, professional interface
@@ -128,7 +128,7 @@ Open your browser and go to: **http://localhost:9000/**
   - "+" button for additional PDFs
   - "New Chat" for fresh sessions
 
-## 🔍 **API Endpoints**
+## API Endpoints
 
 - `GET /` - Main web interface
 - `GET /health` - Health check
@@ -138,7 +138,7 @@ Open your browser and go to: **http://localhost:9000/**
 - `GET /documents` - List uploaded documents
 - `GET /docs` - API documentation
 
-## 🏆 **Technical Excellence**
+## Technical Excellence
 
 This project demonstrates:
 - **Advanced Python Skills**: FastAPI, async programming, error handling
@@ -147,7 +147,7 @@ This project demonstrates:
 - **Frontend Development**: Modern HTML/CSS/JavaScript
 - **Professional UI/UX**: Clean, intuitive user interface
 
-## 🎨 **Creative Features (Beyond Requirements)**
+## Creative Features (Beyond Requirements)
 
 - **Multi-Document Chat Continuity**: Upload multiple PDFs and combine information
 - **Smart Fallback System**: Works even without API keys using intelligent text analysis
@@ -159,7 +159,7 @@ This project demonstrates:
 - **Bullet Point Formatting**: Clean, structured AI responses
 - **Document Isolation**: Smart context management for focused answers
 
-## 📈 **Assignment Compliance**
+## Assignment Compliance
 
 | Requirement | Status | Implementation |
 |---|---|---|
