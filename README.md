@@ -22,6 +22,16 @@ A complete **RAG (Retrieval-Augmented Generation)** web application that allows 
 - **Error Handling**: Graceful fallback system
 - **Smart Fallback**: Works even without API keys
 
+## 📸 **Screenshots**
+
+### Home Page Interface
+![Home Page](static/screenshots/home%20page.png)
+*Clean, professional upload interface with company branding*
+
+### Chat Interface in Action
+![Chat Interface](static/screenshots/Chat%20Interface.png)
+*Real-time Q&A with uploaded PDF documents showing RAG responses*
+
 ## 🛠 **Technology Stack**
 
 ### Backend
@@ -49,7 +59,10 @@ Nsquare InsightDocs/
 ├── requirements.txt          # Python dependencies
 ├── README.md                 # This file
 ├── static/
-│   └── company_logo.jpeg    # Company logo
+│   ├── company_logo.jpeg    # Company logo
+│   └── screenshots/         # Application screenshots
+│       ├── home page.png    # Upload interface
+│       └── Chat Interface.png # Q&A interface
 └── uploads/                 # PDF storage directory
 ```
 
