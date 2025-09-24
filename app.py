@@ -207,9 +207,9 @@ def search_relevant_chunks(query: str, top_k: int = 8) -> List[Dict]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("🚂 Starting Railway Production System (Local Development Mode)...")
-    print("✅ Using in-memory storage for local testing")
-    print("✅ Database will be PostgreSQL on Railway deployment")
+    print("🚀 Starting Nsquare InsightDocs Local System...")
+    print("✅ Using in-memory storage for local development")
+    print("✅ All systems ready for PDF Q&A processing")
     
     # Initialize RAG System
     rag_initialized = initialize_rag_system()
@@ -220,11 +220,11 @@ async def lifespan(app: FastAPI):
     
     yield
     # Shutdown
-    print("🛑 Shutting down Railway Production System...")
+    print("🛑 Shutting down Nsquare InsightDocs...")
 
 app = FastAPI(
-    title="AskDocs AI - Railway Production (Local Dev)",
-    description="Production FastAPI service for PDF upload and AI chat - Local Development Version",
+    title="Nsquare InsightDocs - Local Development",
+    description="AI-Powered PDF Q&A System with RAG - Local Development Version",
     version="2.0.0",
     lifespan=lifespan
 )
@@ -1433,12 +1433,12 @@ async def deployment_status():
     }
 
 if __name__ == "__main__":
-    print("🚂 Starting AskDocs AI - Railway Production (Local Dev)...")
+    print("🚀 Starting Nsquare InsightDocs - Local Development...")
     print("📍 Features:")
     print("   ✅ PDF upload and text extraction")
-    print("   ✅ OpenAI GPT integration (with fallback)")
-    print("   ✅ Railway-ready deployment")
-    print("   ✅ Local development mode")
+    print("   ✅ Gemini AI integration with smart fallback")
+    print("   ✅ RAG system with vector search")
+    print("   ✅ 500+ page document support")
     print("📍 Endpoints:")
     print("   http://localhost:9000/")
     print("   http://localhost:9000/health")
